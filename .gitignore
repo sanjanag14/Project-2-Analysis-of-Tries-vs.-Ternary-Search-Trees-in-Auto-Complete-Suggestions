@@ -1,0 +1,10 @@
+# build artifacts
+/build/
+/build-*/
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/Makefile
+
+# macos
+.DS_Store
