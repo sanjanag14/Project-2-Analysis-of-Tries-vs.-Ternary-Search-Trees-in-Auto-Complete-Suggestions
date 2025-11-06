@@ -5,23 +5,11 @@
 #include <chrono>
 #include <iomanip>
 #include <algorithm>
+#include "trie.hpp"
+#include "tst.hpp"
 
 using namespace std;
 using namespace chrono;
-
-// Include the TST implementation
-#include "tst.hpp"
-
-// Forward declaration for Trie class
-// This will be implemented by Kalea
-class Trie {
-public:
-    virtual void insert(const string& word) = 0;
-    virtual bool search(const string& word) = 0;
-    virtual vector<string> autoComplete(const string& prefix) = 0;
-    virtual size_t getMemoryUsage() = 0;
-    virtual ~Trie() {}
-};
 
 // Data structure to hold performance metrics
 struct PerformanceMetrics {
@@ -77,10 +65,37 @@ public:
 
 class PerformanceTester {
 public:
-    template<typename T>
-    static PerformanceMetrics testStructure(T* structure, const vector<string>& words) {
+    static PerformanceMetrics testTrie(Trie* structure, const vector<string>& words) {
         PerformanceMetrics metrics = {0, 0, 0, 0};
-        
+
+        // Test insertion time
+        auto startInsert = high_resolution_clock::now();
+        for (auto word : words) {  // Need non-const for Trie::insert
+            structure->insert(word);
+        }
+        auto endInsert = high_resolution_clock::now();
+        auto durationInsert = duration_cast<microseconds>(endInsert - startInsert);
+        metrics.avgInsertionTime = durationInsert.count() / (double)words.size();
+
+        // Test search time
+        auto startSearch = high_resolution_clock::now();
+        for (auto word : words) {  // Need non-const for Trie::search
+            structure->search(word);
+        }
+        auto endSearch = high_resolution_clock::now();
+        auto durationSearch = duration_cast<microseconds>(endSearch - startSearch);
+        metrics.avgSearchTime = durationSearch.count() / (double)words.size();
+
+        // Get memory usage
+        metrics.memoryUsage = structure->getMemory();
+        metrics.numWords = words.size();
+
+        return metrics;
+    }
+
+    static PerformanceMetrics testTST(TernarySearchTree* structure, const vector<string>& words) {
+        PerformanceMetrics metrics = {0, 0, 0, 0};
+
         // Test insertion time
         auto startInsert = high_resolution_clock::now();
         for (const auto& word : words) {
@@ -106,16 +121,16 @@ public:
         return metrics;
     }
 
-    static void displayComparison(const PerformanceMetrics& trieMetrics, 
+    static void displayComparison(const PerformanceMetrics& trieMetrics,
                                   const PerformanceMetrics& tstMetrics) {
         cout << "\n" << string(80, '=') << endl;
         cout << "PERFORMANCE COMPARISON RESULTS" << endl;
         cout << string(80, '=') << endl;
         cout << "Number of words tested: " << trieMetrics.numWords << endl << endl;
 
-        cout << left << setw(30) << "Metric" 
-             << setw(20) << "Trie" 
-             << setw(20) << "TST" 
+        cout << left << setw(30) << "Metric"
+             << setw(20) << "Trie"
+             << setw(20) << "TST"
              << setw(10) << "Winner" << endl;
         cout << string(80, '-') << endl;
 
@@ -140,19 +155,19 @@ public:
         cout << string(80, '=') << endl;
 
         // Summary statistics
-        double insertSpeedup = max(trieMetrics.avgInsertionTime, tstMetrics.avgInsertionTime) / 
+        double insertSpeedup = max(trieMetrics.avgInsertionTime, tstMetrics.avgInsertionTime) /
                                min(trieMetrics.avgInsertionTime, tstMetrics.avgInsertionTime);
-        double searchSpeedup = max(trieMetrics.avgSearchTime, tstMetrics.avgSearchTime) / 
+        double searchSpeedup = max(trieMetrics.avgSearchTime, tstMetrics.avgSearchTime) /
                               min(trieMetrics.avgSearchTime, tstMetrics.avgSearchTime);
-        double memoryRatio = max(trieMetrics.memoryUsage, tstMetrics.memoryUsage) / 
+        double memoryRatio = max(trieMetrics.memoryUsage, tstMetrics.memoryUsage) /
                             (double)min(trieMetrics.memoryUsage, tstMetrics.memoryUsage);
 
         cout << "\nSUMMARY:" << endl;
-        cout << "- Insertion: " << (trieMetrics.avgInsertionTime < tstMetrics.avgInsertionTime ? "Trie" : "TST") 
+        cout << "- Insertion: " << (trieMetrics.avgInsertionTime < tstMetrics.avgInsertionTime ? "Trie" : "TST")
              << " is " << fixed << setprecision(2) << insertSpeedup << "x faster" << endl;
-        cout << "- Search: " << (trieMetrics.avgSearchTime < tstMetrics.avgSearchTime ? "Trie" : "TST") 
+        cout << "- Search: " << (trieMetrics.avgSearchTime < tstMetrics.avgSearchTime ? "Trie" : "TST")
              << " is " << fixed << setprecision(2) << searchSpeedup << "x faster" << endl;
-        cout << "- Memory: " << (trieMetrics.memoryUsage < tstMetrics.memoryUsage ? "Trie" : "TST") 
+        cout << "- Memory: " << (trieMetrics.memoryUsage < tstMetrics.memoryUsage ? "Trie" : "TST")
              << " uses " << fixed << setprecision(2) << memoryRatio << "x less memory" << endl;
         cout << string(80, '=') << endl;
     }
@@ -167,7 +182,7 @@ private:
     bool tstLoaded;
 
 public:
-    MenuSystem(Trie* t, TernarySearchTree* ts, DatasetManager* dm) 
+    MenuSystem(Trie* t, TernarySearchTree* ts, DatasetManager* dm)
         : trie(t), tst(ts), dataManager(dm), trieLoaded(false), tstLoaded(false) {}
 
     void displayMenu() {
@@ -257,14 +272,14 @@ public:
 private:
     void loadIntoTrie() {
         auto start = high_resolution_clock::now();
-        for (const auto& word : dataManager->getWords()) {
+        for (auto word : dataManager->getWords()) {  // Need non-const copy
             trie->insert(word);
         }
         auto end = high_resolution_clock::now();
         auto duration = duration_cast<milliseconds>(end - start);
-        
+
         trieLoaded = true;
-        cout << "Loaded " << dataManager->getWords().size() 
+        cout << "Loaded " << dataManager->getWords().size()
              << " words into Trie in " << duration.count() << " ms" << endl;
     }
 
@@ -275,13 +290,14 @@ private:
         }
         auto end = high_resolution_clock::now();
         auto duration = duration_cast<milliseconds>(end - start);
-        
+
         tstLoaded = true;
-        cout << "Loaded " << dataManager->getWords().size() 
+        cout << "Loaded " << dataManager->getWords().size()
              << " words into TST in " << duration.count() << " ms" << endl;
     }
 
-    void insertWordTrie(const string& word) {
+    void insertWordTrie(string word) {
+        transform(word.begin(), word.end(), word.begin(), ::tolower);
         auto start = high_resolution_clock::now();
         trie->insert(word);
         auto end = high_resolution_clock::now();
@@ -289,7 +305,8 @@ private:
         cout << "Inserted '" << word << "' into Trie in " << duration.count() << " μs" << endl;
     }
 
-    void insertWordTST(const string& word) {
+    void insertWordTST(string word) {
+        transform(word.begin(), word.end(), word.begin(), ::tolower);
         auto start = high_resolution_clock::now();
         tst->insert(word);
         auto end = high_resolution_clock::now();
@@ -297,53 +314,59 @@ private:
         cout << "Inserted '" << word << "' into TST in " << duration.count() << " μs" << endl;
     }
 
-    void searchWordTrie(const string& word) {
+    void searchWordTrie(string word) {
+        transform(word.begin(), word.end(), word.begin(), ::tolower);
         auto start = high_resolution_clock::now();
         bool found = trie->search(word);
         auto end = high_resolution_clock::now();
         auto duration = duration_cast<microseconds>(end - start);
-        cout << "Word '" << word << "' " << (found ? "FOUND" : "NOT FOUND") 
+        cout << "Word '" << word << "' " << (found ? "FOUND" : "NOT FOUND")
              << " in Trie (" << duration.count() << " μs)" << endl;
     }
 
     void searchWordTST(const string& word) {
+        string lowerWord = word;
+        transform(lowerWord.begin(), lowerWord.end(), lowerWord.begin(), ::tolower);
         auto start = high_resolution_clock::now();
-        bool found = tst->search(word);
+        bool found = tst->search(lowerWord);
         auto end = high_resolution_clock::now();
         auto duration = duration_cast<microseconds>(end - start);
-        cout << "Word '" << word << "' " << (found ? "FOUND" : "NOT FOUND") 
+        cout << "Word '" << word << "' " << (found ? "FOUND" : "NOT FOUND")
              << " in TST (" << duration.count() << " μs)" << endl;
     }
 
-    void autoCompleteTrie(const string& prefix) {
+    void autoCompleteTrie(string prefix) {
+        transform(prefix.begin(), prefix.end(), prefix.begin(), ::tolower);
         auto start = high_resolution_clock::now();
-        vector<string> suggestions = trie->autoComplete(prefix);
+        vector<string> suggestions = trie->autocomplete(prefix);
         auto end = high_resolution_clock::now();
         auto duration = duration_cast<microseconds>(end - start);
-        
+
         cout << "Auto-complete suggestions for '" << prefix << "' from Trie:" << endl;
         int count = 0;
         for (const auto& suggestion : suggestions) {
             cout << "  " << suggestion << endl;
             if (++count >= 10) break; // Limit to 10 suggestions
         }
-        cout << "Total: " << suggestions.size() << " suggestions (" 
+        cout << "Total: " << suggestions.size() << " suggestions ("
              << duration.count() << " μs)" << endl;
     }
 
     void autoCompleteTST(const string& prefix) {
+        string lowerPrefix = prefix;
+        transform(lowerPrefix.begin(), lowerPrefix.end(), lowerPrefix.begin(), ::tolower);
         auto start = high_resolution_clock::now();
-        vector<string> suggestions = tst->autoComplete(prefix);
+        vector<string> suggestions = tst->autoComplete(lowerPrefix);
         auto end = high_resolution_clock::now();
         auto duration = duration_cast<microseconds>(end - start);
-        
+
         cout << "Auto-complete suggestions for '" << prefix << "' from TST:" << endl;
         int count = 0;
         for (const auto& suggestion : suggestions) {
             cout << "  " << suggestion << endl;
             if (++count >= 10) break; // Limit to 10 suggestions
         }
-        cout << "Total: " << suggestions.size() << " suggestions (" 
+        cout << "Total: " << suggestions.size() << " suggestions ("
              << duration.count() << " μs)" << endl;
     }
 
@@ -351,39 +374,25 @@ private:
         cout << "Enter sample size (e.g., 1000, 10000): ";
         int sampleSize;
         cin >> sampleSize;
-        
+
         vector<string> sample = dataManager->getSample(sampleSize);
-        
+
         cout << "\nTesting with " << sample.size() << " words..." << endl;
-        
+
         // Create fresh structures for fair comparison
-        // Note: For Trie, you'll need Kalea's implementation
+        Trie* freshTrie = new Trie();
         TernarySearchTree* freshTST = new TernarySearchTree();
-        
-        // For now, just test TST if Trie isn't available
-        cout << "\nTesting TST..." << endl;
-        PerformanceMetrics tstMetrics = PerformanceTester::testStructure(freshTST, sample);
-        
-        cout << "\nTST Results:" << endl;
-        cout << "- Avg Insertion Time: " << fixed << setprecision(4) 
-             << tstMetrics.avgInsertionTime << " μs" << endl;
-        cout << "- Avg Search Time: " << fixed << setprecision(4) 
-             << tstMetrics.avgSearchTime << " μs" << endl;
-        cout << "- Memory Usage: " << (tstMetrics.memoryUsage / 1024.0) << " KB" << endl;
-        
-        delete freshTST;
-        
-        // Uncomment when Trie implementation is ready:
-        /*
-        Trie* freshTrie = new TrieImplementation();
-        cout << "\nTesting Trie..." << endl;
-        PerformanceMetrics trieMetrics = PerformanceTester::testStructure(freshTrie, sample);
-        
-        cout << "\nGenerating comparison..." << endl;
+
+        cout << "Testing Trie..." << endl;
+        PerformanceMetrics trieMetrics = PerformanceTester::testTrie(freshTrie, sample);
+
+        cout << "Testing TST..." << endl;
+        PerformanceMetrics tstMetrics = PerformanceTester::testTST(freshTST, sample);
+
         PerformanceTester::displayComparison(trieMetrics, tstMetrics);
-        
+
         delete freshTrie;
-        */
+        delete freshTST;
     }
 
     void compareFull() {
@@ -391,62 +400,50 @@ private:
         cout << "Proceed? (y/n): ";
         char confirm;
         cin >> confirm;
-        
+
         if (confirm != 'y' && confirm != 'Y') {
             cout << "Comparison cancelled." << endl;
             return;
         }
-        
-        vector<string> allWords = dataManager->getWords();
+
+        const vector<string>& allWords = dataManager->getWords();
         cout << "\nTesting with " << allWords.size() << " words..." << endl;
-        
+
         // Create fresh structures for fair comparison
+        Trie* freshTrie = new Trie();
         TernarySearchTree* freshTST = new TernarySearchTree();
-        
-        cout << "\nTesting TST..." << endl;
-        PerformanceMetrics tstMetrics = PerformanceTester::testStructure(freshTST, allWords);
-        
-        cout << "\nTST Results:" << endl;
-        cout << "- Avg Insertion Time: " << fixed << setprecision(4) 
-             << tstMetrics.avgInsertionTime << " μs" << endl;
-        cout << "- Avg Search Time: " << fixed << setprecision(4) 
-             << tstMetrics.avgSearchTime << " μs" << endl;
-        cout << "- Memory Usage: " << (tstMetrics.memoryUsage / 1024.0) << " KB" << endl;
-        
-        delete freshTST;
-        
-        // Uncomment when Trie implementation is ready:
-        /*
-        Trie* freshTrie = new TrieImplementation();
-        cout << "\nTesting Trie..." << endl;
-        PerformanceMetrics trieMetrics = PerformanceTester::testStructure(freshTrie, allWords);
-        
-        cout << "\nGenerating comparison..." << endl;
+
+        cout << "Testing Trie..." << endl;
+        PerformanceMetrics trieMetrics = PerformanceTester::testTrie(freshTrie, allWords);
+
+        cout << "Testing TST..." << endl;
+        PerformanceMetrics tstMetrics = PerformanceTester::testTST(freshTST, allWords);
+
         PerformanceTester::displayComparison(trieMetrics, tstMetrics);
-        
+
         delete freshTrie;
-        */
+        delete freshTST;
     }
 
     void displayMemoryUsage() {
         cout << "\n" << string(50, '=') << endl;
         cout << "MEMORY USAGE" << endl;
         cout << string(50, '=') << endl;
-        
+
         if (trieLoaded) {
-            size_t trieMemory = trie->getMemoryUsage();
+            size_t trieMemory = trie->getMemory();
             cout << "Trie: " << (trieMemory / 1024.0) << " KB" << endl;
         } else {
             cout << "Trie: Not loaded" << endl;
         }
-        
+
         if (tstLoaded) {
             size_t tstMemory = tst->getMemoryUsage();
             cout << "TST:  " << (tstMemory / 1024.0) << " KB" << endl;
         } else {
             cout << "TST:  Not loaded" << endl;
         }
-        
+
         cout << string(50, '=') << endl;
     }
 };
@@ -454,58 +451,22 @@ private:
 int main() {
     // Initialize dataset manager
     DatasetManager dataManager("479k_words.txt");
-    
+
     cout << "Loading dataset..." << endl;
     if (!dataManager.loadDataset()) {
         cerr << "Failed to load dataset. Please ensure '479k_words.txt' is in the current directory." << endl;
         return 1;
     }
 
-    cout << "\nDataset loaded successfully!" << endl;
-    
-    // Initialize TST (Aarnav's implementation is ready!)
+    // Create instances of Trie and TST
+    Trie* trie = new Trie();
     TernarySearchTree* tst = new TernarySearchTree();
-    
-    // Note: Uncomment once Kalea's Trie implementation is ready
-    /*
-    Trie* trie = new TrieImplementation();
+
     MenuSystem menu(trie, tst, &dataManager);
     menu.run();
+
     delete trie;
-    */
-    
-    // For now, we can still use the menu with just TST
-    // You'll need to temporarily comment out Trie-specific menu options
-    // or implement a stub Trie class
-    
-    cout << "TST structure initialized." << endl;
-    cout << "Waiting for Kalea's Trie implementation to enable full comparison." << endl;
-    
-    // Temporary: You can test TST directly here
-    cout << "\n--- Quick TST Test ---" << endl;
-    auto testWords = dataManager.getSample(5);
-    for (const auto& word : testWords) {
-        tst->insert(word);
-        cout << "Inserted: " << word << endl;
-    }
-    
-    cout << "\nSearching for first word..." << endl;
-    if (!testWords.empty() && tst->search(testWords[0])) {
-        cout << "Found: " << testWords[0] << endl;
-        
-        // Test autocomplete with first 3 chars
-        if (testWords[0].length() >= 3) {
-            string prefix = testWords[0].substr(0, 3);
-            auto suggestions = tst->autoComplete(prefix);
-            cout << "\nAutocomplete for '" << prefix << "':" << endl;
-            for (const auto& s : suggestions) {
-                cout << "  - " << s << endl;
-            }
-        }
-    }
-    
-    cout << "\nMemory usage: " << (tst->getMemoryUsage() / 1024.0) << " KB" << endl;
-    
     delete tst;
+
     return 0;
 }
