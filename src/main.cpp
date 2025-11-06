@@ -449,12 +449,44 @@ private:
 };
 
 int main() {
+    // Display available datasets
+    cout << "Available dataset files:" << endl;
+    cout << "1. words.txt" << endl;
+    cout << "2. words_alpha.txt" << endl;
+    cout << "3. words_dictionary.json" << endl;
+    cout << "4. Custom file (enter filename)" << endl;
+    cout << "Enter choice (1-4): ";
+    
+    int fileChoice;
+    cin >> fileChoice;
+    cin.ignore();
+    
+    string filename;
+    switch (fileChoice) {
+        case 1:
+            filename = "words.txt";
+            break;
+        case 2:
+            filename = "words_alpha.txt";
+            break;
+        case 3:
+            filename = "words_dictionary.json";
+            break;
+        case 4:
+            cout << "Enter filename: ";
+            getline(cin, filename);
+            break;
+        default:
+            cout << "Invalid choice. Using words.txt" << endl;
+            filename = "words.txt";
+    }
+    
     // Initialize dataset manager
-    DatasetManager dataManager("479k_words.txt");
+    DatasetManager dataManager(filename);
 
-    cout << "Loading dataset..." << endl;
+    cout << "\nLoading dataset from " << filename << "..." << endl;
     if (!dataManager.loadDataset()) {
-        cerr << "Failed to load dataset. Please ensure '479k_words.txt' is in the current directory." << endl;
+        cerr << "Failed to load dataset. Please ensure '" << filename << "' is in the current directory." << endl;
         return 1;
     }
 
