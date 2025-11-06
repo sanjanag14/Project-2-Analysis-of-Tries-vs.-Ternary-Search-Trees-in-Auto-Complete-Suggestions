@@ -13,4 +13,11 @@ add_library(tst STATIC
 
 target_include_directories(tst PUBLIC include)
 
-# note: an executable will be added later by teammates
+# build the main executable
+add_executable(autocomplete_app
+    src/main.cpp
+    src/trie.cpp
+)
+
+target_include_directories(autocomplete_app PRIVATE include)
+target_link_libraries(autocomplete_app PRIVATE tst)
